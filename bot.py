@@ -25,6 +25,28 @@ def load_global():
 def save_global(data):
     with open(GLOBAL_FILE, "w") as f:
         json.dump(data, f)
+
+def update_streak():
+    global_data = load_global()
+    today = datetime.now(TIMEZONE).date()
+
+    if global_data["last_success_date"]:
+        last_date = datetime.strptime(
+            global_data["last_success_date"], "%Y-%m-%d"
+        ).date()
+
+        if today - last_date == timedelta(days=1):
+            global_data["streak"] += 1
+        elif today - last_date > timedelta(days=1):
+            global_data["streak"] = 1
+    else:
+        global_data["streak"] = 1
+
+    global_data["last_success_date"] = str(today)
+    save_global(global_data)
+
+    return global_data["streak"]
+    
 TIMEZONE = pytz.timezone("Asia/Makassar")
 
 # =========================
@@ -214,6 +236,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
