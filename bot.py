@@ -190,7 +190,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     # Daily Jobs
-    app.job_queue.run_daily(auto_morning, time=time(16,27,tzinfo=TIMEZONE))
+    app.job_queue.run_daily(auto_morning, time=time(6,15,tzinfo=TIMEZONE))
     app.job_queue.run_daily(auto_evening, time=time(17,5,tzinfo=TIMEZONE))
     app.job_queue.run_daily(weekly_review, time=time(19,0,tzinfo=TIMEZONE), days=(6,))
 
@@ -203,4 +203,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
