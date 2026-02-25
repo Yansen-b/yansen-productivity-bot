@@ -8,7 +8,7 @@ from telegram.ext import (
 )
 import os
 import json
-from datetime import date
+from datetime import date, timedelta
 
 TOKEN = os.environ.get("TOKEN")
 DATA_FILE = "data.json"
@@ -45,6 +45,19 @@ def init_day(data):
         }
     return data
 
+def calculate_streak(data):
+    streak = 0
+    today = date.today()
+
+    for i in range(30):
+        day_key = str(today - timedelta(days=i))
+        if day_key in data and data[day_key].get("streak_valid"):
+            streak += 1
+        else:
+            break
+
+    return streak
+
 # =========================
 # STATE
 # =========================
@@ -52,21 +65,21 @@ def init_day(data):
 user_state = {}
 
 # =========================
-# PLAN SYSTEM
+# PLAN
 # =========================
 
 async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_state[update.effective_chat.id] = "WAITING_PLAN"
     await update.message.reply_text(
         "Morning Review\n\n"
-        "Gunakan format berikut:\n\n"
+        "Gunakan format:\n\n"
         "BESAR:\n"
-        "1.\n"
-        "2.\n"
-        "3.\n\n"
+        "1. Task besar 1\n"
+        "2. Task besar 2\n"
+        "3. Task besar 3\n\n"
         "KECIL:\n"
-        "4.\n"
-        "5."
+        "4. Task kecil 1\n"
+        "5. Task kecil 2"
     )
 
 async def handle_plan_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,21 +89,26 @@ async def handle_plan_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if "BESAR:" not in text or "KECIL:" not in text:
-        await update.message.reply_text("Format salah. Ulangi sesuai template.")
+        await update.message.reply_text("Format salah.")
         return
 
     try:
         big_section = text.split("BESAR:")[1].split("KECIL:")[0]
         small_section = text.split("KECIL:")[1]
 
-        big_tasks = [line.strip()[2:].strip() for line in big_section.split("\n") if line.strip().startswith(("1.","2.","3."))]
-        small_tasks = [line.strip()[2:].strip() for line in small_section.split("\n") if line.strip().startswith(("4.","5."))]
+        big_tasks = [line.strip()[2:].strip()
+                     for line in big_section.split("\n")
+                     if line.strip().startswith(("1.","2.","3."))]
+
+        small_tasks = [line.strip()[2:].strip()
+                       for line in small_section.split("\n")
+                       if line.strip().startswith(("4.","5."))]
 
         if len(big_tasks) != 3 or len(small_tasks) != 2:
             raise Exception
 
     except:
-        await update.message.reply_text("Format tidak valid. Pastikan 3 BESAR dan 2 KECIL.")
+        await update.message.reply_text("Format tidak valid.")
         return
 
     data = load_data()
@@ -138,20 +156,19 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message += "BIG:\n"
     for i, t in enumerate(day["big_tasks"], 1):
-        status_icon = "✅" if t["done"] else "❌"
-        message += f"{i}. {status_icon} {t['name']}\n"
+        icon = "✅" if t["done"] else "❌"
+        message += f"{i}. {icon} {t['name']}\n"
 
     message += "\nSMALL:\n"
     for i, t in enumerate(day["small_tasks"], 4):
-        status_icon = "✅" if t["done"] else "❌"
-        message += f"{i}. {status_icon} {t['name']}\n"
+        icon = "✅" if t["done"] else "❌"
+        message += f"{i}. {icon} {t['name']}\n"
 
     if day["improvement_tasks"]:
         message += "\nIMPROVEMENT:\n"
-        base = 6
-        for i, t in enumerate(day["improvement_tasks"], base):
-            status_icon = "✅" if t["done"] else "❌"
-            message += f"{i}. {status_icon} {t['name']}\n"
+        for i, t in enumerate(day["improvement_tasks"], 6):
+            icon = "✅" if t["done"] else "❌"
+            message += f"{i}. {icon} {t['name']}\n"
 
     await update.message.reply_text(message)
 
@@ -161,24 +178,23 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Gunakan: /done nomor_task")
+        await update.message.reply_text("Gunakan: /done nomor")
         return
 
     try:
         task_number = int(context.args[0])
     except:
-        await update.message.reply_text("Masukkan nomor task.")
+        await update.message.reply_text("Nomor tidak valid.")
         return
 
     data = load_data()
     today = today_key()
 
     if today not in data:
-        await update.message.reply_text("Belum ada plan hari ini.")
+        await update.message.reply_text("Belum ada plan.")
         return
 
     day = data[today]
-
     all_tasks = (
         day["big_tasks"] +
         day["small_tasks"] +
@@ -192,21 +208,19 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if all_tasks[index]["done"]:
-        await update.message.reply_text("Task sudah selesai sebelumnya.")
+        await update.message.reply_text("Sudah selesai sebelumnya.")
         return
 
     all_tasks[index]["done"] = True
 
     if index < 3:
         day["score"] += 3
-    elif index < 5:
-        day["score"] += 1
     else:
         day["score"] += 1
 
     save_data(data)
 
-    await update.message.reply_text("Task ditandai selesai.")
+    await status(update, context)
 
 # =========================
 # COMPLETE
@@ -217,20 +231,22 @@ async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = today_key()
 
     if today not in data:
-        await update.message.reply_text("Belum ada plan hari ini.")
+        await update.message.reply_text("Belum ada plan.")
         return
 
     day = data[today]
 
-    all_done = all(
-        t["done"] for t in (
-            day["big_tasks"] +
-            day["small_tasks"]
-        )
-    )
+    incomplete = [
+        t["name"] for t in (
+            day["big_tasks"] + day["small_tasks"]
+        ) if not t["done"]
+    ]
 
-    if not all_done:
-        await update.message.reply_text("Masih ada task utama belum selesai.")
+    if incomplete:
+        await update.message.reply_text(
+            "Masih ada task belum selesai:\n- " +
+            "\n- ".join(incomplete)
+        )
         return
 
     if not day["completed_day"]:
@@ -239,9 +255,9 @@ async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
         day["streak_valid"] = True
         save_data(data)
 
-        await update.message.reply_text("Hari sukses. +5 bonus poin.")
+        await update.message.reply_text("Hari sukses. +5 poin.")
     else:
-        await update.message.reply_text("Sudah dikonfirmasi sebelumnya.")
+        await update.message.reply_text("Sudah dikonfirmasi.")
 
 # =========================
 # IMPROVE
@@ -302,13 +318,38 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     index = task_number - 1
 
     if index < 0 or index >= len(all_tasks):
-        await update.message.reply_text("Nomor task tidak valid.")
+        await update.message.reply_text("Nomor tidak valid.")
         return
 
     all_tasks[index]["name"] = new_name
     save_data(data)
 
-    await update.message.reply_text("Task berhasil diupdate.")
+    await update.message.reply_text("Task diupdate.")
+
+# =========================
+# STREAK
+# =========================
+
+async def streak(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    current_streak = calculate_streak(data)
+    await update.message.reply_text(f"Streak saat ini: {current_streak} hari.")
+
+# =========================
+# HELP
+# =========================
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Menu:\n"
+        "/plan\n"
+        "/status\n"
+        "/done nomor\n"
+        "/complete\n"
+        "/improve nama\n"
+        "/edit nomor nama_baru\n"
+        "/streak"
+    )
 
 # =========================
 # MAIN
@@ -327,6 +368,8 @@ def main():
     app.add_handler(CommandHandler("complete", complete))
     app.add_handler(CommandHandler("improve", improve))
     app.add_handler(CommandHandler("edit", edit))
+    app.add_handler(CommandHandler("streak", streak))
+    app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plan_input))
 
     print("Core Bot berjalan...")
