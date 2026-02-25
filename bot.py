@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -49,7 +49,7 @@ def calculate_streak(data):
     streak = 0
     today = date.today()
 
-    for i in range(30):
+    for i in range(365):
         day_key = str(today - timedelta(days=i))
         if day_key in data and data[day_key].get("streak_valid"):
             streak += 1
@@ -71,15 +71,13 @@ user_state = {}
 async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_state[update.effective_chat.id] = "WAITING_PLAN"
     await update.message.reply_text(
-        "Morning Review\n\n"
-        "Gunakan format:\n\n"
         "BESAR:\n"
-        "1. Task besar 1\n"
-        "2. Task besar 2\n"
-        "3. Task besar 3\n\n"
+        "1. \n"
+        "2. \n"
+        "3. \n\n"
         "KECIL:\n"
-        "4. Task kecil 1\n"
-        "5. Task kecil 2"
+        "4. \n"
+        "5. "
     )
 
 async def handle_plan_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,8 +115,11 @@ async def handle_plan_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data[today]["big_tasks"] = [{"name": t, "done": False} for t in big_tasks]
     data[today]["small_tasks"] = [{"name": t, "done": False} for t in small_tasks]
-    data[today]["score"] += 2
+    data[today]["improvement_tasks"] = []
+    data[today]["score"] = 2
     data[today]["review_done"] = True
+    data[today]["completed_day"] = False
+    data[today]["streak_valid"] = False
 
     save_data(data)
 
@@ -204,7 +205,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     index = task_number - 1
 
     if index < 0 or index >= len(all_tasks):
-        await update.message.reply_text("Nomor task tidak valid.")
+        await update.message.reply_text("Nomor tidak valid.")
         return
 
     if all_tasks[index]["done"]:
@@ -308,7 +309,6 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     day = data[today]
-
     all_tasks = (
         day["big_tasks"] +
         day["small_tasks"] +
@@ -341,7 +341,6 @@ async def streak(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Menu:\n"
         "/plan\n"
         "/status\n"
         "/done nomor\n"
@@ -355,12 +354,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN
 # =========================
 
+async def setup_commands(app):
+    commands = [
+        BotCommand("plan", "Buat plan hari ini"),
+        BotCommand("status", "Lihat progress"),
+        BotCommand("done", "Tandai task selesai"),
+        BotCommand("complete", "Konfirmasi hari selesai"),
+        BotCommand("improve", "Tambah improvement task"),
+        BotCommand("edit", "Edit task"),
+        BotCommand("streak", "Lihat streak"),
+        BotCommand("help", "Lihat menu")
+    ]
+    await app.bot.set_my_commands(commands)
+
 def main():
     if not TOKEN:
         print("TOKEN tidak ditemukan.")
         return
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).post_init(setup_commands).build()
 
     app.add_handler(CommandHandler("plan", plan))
     app.add_handler(CommandHandler("status", status))
