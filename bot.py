@@ -206,9 +206,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # SET COMMAND MENU
 # =========================
 
-async def setup_commands(app):
+aasync def setup_commands(app):
     commands = [
         BotCommand("plan", "Buat plan hari ini"),
+        BotCommand("status", "Lihat progress"),
+        BotCommand("done", "Tandai task selesai"),
+        BotCommand("complete", "Tutup hari & update streak"),
+        BotCommand("streak", "Lihat streak saat ini"),
+        BotCommand("improve", "Tambah improvement task"),
+        BotCommand("edit", "Edit task berdasarkan nomor"),
     ]
     await app.bot.set_my_commands(commands)
 
@@ -236,6 +242,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
