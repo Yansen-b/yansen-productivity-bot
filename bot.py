@@ -14,6 +14,17 @@ import pytz
 TOKEN = os.environ.get("TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))
 DATA_FILE = "data.json"
+GLOBAL_FILE = "global.json"
+
+def load_global():
+    if not os.path.exists(GLOBAL_FILE):
+        return {"streak": 0, "last_success_date": ""}
+    with open(GLOBAL_FILE, "r") as f:
+        return json.load(f)
+
+def save_global(data):
+    with open(GLOBAL_FILE, "w") as f:
+        json.dump(data, f)
 TIMEZONE = pytz.timezone("Asia/Makassar")
 
 # =========================
@@ -203,5 +214,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
