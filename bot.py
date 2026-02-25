@@ -69,15 +69,10 @@ user_state = {}
 # =========================
 
 async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_state[update.effective_chat.id] = "WAITING_PLAN"
+    print("CHAT ID:", update.effective_chat.id)
+    context.user_data["WAITING_PLAN"] = True
     await update.message.reply_text(
-        "BESAR:\n"
-        "1. \n"
-        "2. \n"
-        "3. \n\n"
-        "KECIL:\n"
-        "4. \n"
-        "5. "
+        "BESAR:\n1. \n2. \n3. \n\nKECIL:\n4. \n5. "
     )
 
 async def handle_plan_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -389,3 +384,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
